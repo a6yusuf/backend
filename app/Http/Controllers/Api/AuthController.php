@@ -8,7 +8,10 @@ use App\Models\User;
 use Hash;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use App\Mail\WelcomeMail;
+use Illuminate\Support\Facades\Mail;
 use DB;
+use Carbon\Carbon;
 
 class AuthController extends Controller
 {
@@ -97,6 +100,25 @@ class AuthController extends Controller
             'team_id' => $request->has('teamId') ? auth()->user()->id : NULL
         ]);
 
+        $nam = request('name');
+        $username = request('email');
+
+        $text = "<p><span style='font-size: 18px;'>Hey $nam!</span></p>
+        <p><span style='font-size: 18px;'>Thank you for joining the MobiNFT family.</span></p>
+        <p><span style='font-size: 18px;'>Below is your account details:</span></p>
+        <p><span style='font-size: 18px;'>Username: <strong>$username</strong></span></p>
+        <p><span style='font-size: 18px;'>Password: <strong>$password</strong></span></p>
+        <p><span style='font-size: 18px;'>Click the button below to login to your account</span></p>";
+    
+    
+        $details = ['title' => "Welcome to MobiNFT",
+        'page' => "https://mobinft.co/login/app",
+        'body' => $text,
+        'btn_text' => 'Login'
+        ];
+    
+        Mail::to($username)->send(new WelcomeMail($username, $details));
+
         return [$user, $password];
     }
 
@@ -138,7 +160,77 @@ class AuthController extends Controller
         return $upd;
     }
 
-        /**
+    //Forgot password
+    public function forget(Request $request)
+    {
+        $email = $request->email;
+        $new_password = $request->password;
+        $token = $request->token;
+        // dd($token);
+        $updatePassword = DB::table('password_resets')
+            ->where([
+            'email' => $request->email, 
+            'token' => $request->token
+            ])
+            ->first();
+        if($updatePassword){
+            $user_new = DB::update('update users set password = ? where email = ?',[Hash::make($new_password) ,$email]);
+
+            $user = User::where('email', $request->email )->with('projects')->first();
+
+            return redirect()->to('reset-password/' . $token, ['message' => 'success']);
+
+        }else{
+            // return array("message" => "Token not correct");
+            return redirect()->to('reset-password/' . $token, ['message' => 'failed']);
+        }
+    }
+
+    public function reset(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users',
+        ]);
+
+        $token = Str::random(64);
+
+        DB::table('password_resets')->insert([
+            'email' => $request->email, 
+            'token' => $token, 
+            'created_at' => Carbon::now()
+          ]);
+
+        $text = "<p><span style='font-size: 18px;'>Hello,</span></p>
+                <p><span style='font-size: 18px;'>You have requested for a password reset for your account.</span></p>
+                <p><span style='font-size: 18px;'>Click the button below to reset your password</span></p>";
+
+        $url = $this->base_url;
+        $username = $request->email;
+
+        $details = ['title' => "MobiNFT Password Reset",
+            'page' => "$url/reset-password/$token",
+            'body' => $text,
+            'btn_text' => 'Reset Password'
+            ];
+
+        // $configuration = [
+        //     'smtp_host'    => 'smtp.gmail.com',
+        //     'smtp_port'    => '465',
+        //     'smtp_username'  => 'yuwebdev6@gmail.com',
+        //     'smtp_password'  => 'kdkneafquxtwxmlz',
+        //     'smtp_encryption'  => 'ssl',
+            
+        //     'from_email'    => 'no-reply@himary.com',
+        //     'from_name'    => 'GoProFunnels',
+        // ];
+        
+        Mail::to($username)->send(new WelcomeMail($username, $details));
+
+        return array("message"=> "Email sent with token", "token" => $token);
+    }
+
+
+    /**
      * Get the authenticated User.
      *
      * @return \Illuminate\Http\JsonResponse

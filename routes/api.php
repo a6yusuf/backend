@@ -14,6 +14,8 @@ Route::group([ 'namespace' => 'App\Http\Controllers\Api'], function ($router) {
     Route::post('register', 'AuthController@register');
     Route::post('login', 'AuthController@login');
     Route::post('registerme', 'AuthController@register_admin');
+    Route::post('forgetpwd', 'AuthController@forget');
+    Route::post('retoken', 'AuthController@reset');
 });
 
 Route::group([ 'namespace' => 'App\Http\Controllers\Api', 'middleware' => ['auth:sanctum']], function ($router) {
